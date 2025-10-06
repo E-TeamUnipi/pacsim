@@ -52,6 +52,8 @@
 
 #include "track/gripMap.hpp"
 
+#include "lidarModel/lidarModel.hpp"
+
 // DynamicDoubleTrackModel7Dof model;
 std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor;
 std::shared_ptr<IVehicleModel> model;
@@ -118,6 +120,7 @@ std::shared_ptr<WheelsSensor> wheelspeedSensor;
 std::shared_ptr<WheelsSensor> torquesSensor;
 std::shared_ptr<ScalarValueSensor> currentSensorTS;
 std::shared_ptr<ScalarValueSensor> voltageSensorTS;
+std::shared_ptr<lidarModel> lidarSensor;
 
 std::shared_ptr<Logger> logger;
 
@@ -329,6 +332,10 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                 trackPub->publish(createRosTrackMessage(lms, "map", simTime));
                 pacsim::msg::PerceptionDetections lmsMsg
                     = LandmarkListToRosMessage(sensorLms, sensorLms.frame_id, sensorLms.timestamp);
+                
+                if (perceptionSensor->getName() == "livox_front")
+                    lidarSensor->generatePointCloud(sensorLms, logger);
+
                 perceptionSensorPublisherMap[perceptionSensor]->publish(lmsMsg);
             }
         }
@@ -487,6 +494,10 @@ void initPerceptionSensors()
     return;
 }
 
+void initLidar(){
+    lidarSensor = std::make_shared<lidarModel>();
+}
+
 void initSensors()
 {
     Config cfg(sensors_config_path);
@@ -626,6 +637,7 @@ int main(int argc, char** argv)
     mainConfig = fillMainConfig(main_config_path);
     initPerceptionSensors();
     initSensors();
+    initLidar();
     handleTf2StaticTransforms();
     for (auto& i : perceptionSensors)
     {

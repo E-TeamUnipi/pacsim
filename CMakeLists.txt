@@ -25,6 +25,9 @@ find_package(rclcpp_components REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 find_package(Eigen3 REQUIRED)
+find_package(PCL REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(pcl_ros REQUIRED)
 
 
 rosidl_generate_interfaces(
@@ -50,7 +53,7 @@ file(GLOB_RECURSE pacsim_SRCS
 
 
 add_executable(${PROJECT_NAME}_node ${pacsim_SRCS})
-ament_target_dependencies(${PROJECT_NAME}_node rclcpp std_srvs visualization_msgs geometry_msgs tf2_ros yaml-cpp)
+ament_target_dependencies(${PROJECT_NAME}_node rclcpp std_srvs visualization_msgs geometry_msgs tf2_ros yaml-cpp pcl_conversions pcl_ros)
 ament_export_dependencies(std_msgs geometry_msgs rosidl_default_runtime)
 
 rosidl_target_interfaces(${PROJECT_NAME}_node
@@ -58,12 +61,14 @@ rosidl_target_interfaces(${PROJECT_NAME}_node
 
 target_include_directories(${PROJECT_NAME}_node PUBLIC
 ${EIGEN3_INCLUDE_DIRS}
+${PCL_INCLUDE_DIRS}
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 "$<INSTALL_INTERFACE:include>")
 
 target_link_libraries(
   ${PROJECT_NAME}_node 
   ${YAML_CPP_LIBRARIES}
+  ${PCL_LIBRARIES}
   )
 
 
