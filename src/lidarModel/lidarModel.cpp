@@ -3,7 +3,6 @@
 
 lidarModel::lidarModel(/* args */)
 {
-    return;
 }
 
 lidarModel::~lidarModel()
@@ -18,11 +17,10 @@ void lidarModel::test(std::shared_ptr<Logger> logger)
 
 void lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger)
 {
-
     pcl::PointCloud<pcl::PointXYZRGB> cloud;
     double floorOcclusionsDistance[POINTS_PER_ARCH];
     fillOcclusionsArray(floorOcclusionsDistance, landmarks);
-    generateFloorPoints(floorOcclusionsDistance, cloud);
+    // generateFloorPoints(floorOcclusionsDistance, cloud);
 
     printConePositions(landmarks, logger);
 
@@ -105,7 +103,6 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
 
 void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud) 
 {
-    double H = 0.5; // Set your sensor/source height here (e.g., H = 0.5 for 0.5 meters above ground)
     double min_angle = -45.0 * M_PI / 180.0;
     double max_angle =  45.0 * M_PI / 180.0;
     int num_channel = 28; // 28
@@ -131,7 +128,7 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
             if (std::abs(std::tan(vert_angle)) < 1e-6) continue;
 
             // Compute ground intersection distance (r) from the source at height H
-            double r = H / -std::tan(vert_angle); // negative tan for downward angles
+            double r = LIDAR_Z / -std::tan(vert_angle); // negative tan for downward angles
 
             if (r <= 0 || r > max_radius) continue;
 
@@ -147,9 +144,8 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
     }
 }
 
-double lidarModel::getConeFlattedSurface(Landmark landmark) 
+double lidarModel::getConeFlattedSurface() 
 {
-    return 2 * X_CONE_DIM * Y_CONE_DIM;
     return X_CONE_DIM * Z_CONE_DIM / 2.0;
 }
 
@@ -160,21 +156,38 @@ uint32_t lidarModel::sampleOnCone(double surface, double distance)
     return samples;
 }
 
-// Implementazione del metodo sampleSurface
+// Implementazione del metodo sampleSurface con z discreta e probabilità decrescente linearmente per valori alti
 std::tuple<double, double, double> lidarModel::samplePointOnCone(double pos_x, double pos_y, double pos_z, double distance)  {
-    static std::default_random_engine generator;
-    // Generazione con distribuzione triangolare: P(z) = 2/Z_CONE_DIM * (1 - z/Z_CONE_DIM)
-    double u = std::uniform_real_distribution<double>(0.0, 1.0)(generator);
+    // K è il numero di livelli in cui dividere la z del cono
+    int k = 28 - std::atan2(LIDAR_Z, distance) / (24.7 * M_PI / 180.0 / 28.0);
 
-    double theta = std::acos( RADIUS / distance );
+    static std::default_random_engine generator;
+
+    // Probabilità decrescente linearmente per livelli alti di z
+    std::vector<double> weights(k);
+    double sum = 0.0;
+    for (int i = 0; i < k; ++i) {
+        weights[i] = static_cast<double>(k - i); // Più basso z_level, più alta la probabilità
+        sum += weights[i];
+    }
+    // Normalizza
+    for (int i = 0; i < k; ++i) {
+        weights[i] /= sum;
+    }
+
+    // Distribuzione discreta pesata
+    std::discrete_distribution<int> dist_z(weights.begin(), weights.end());
+    int z_level = dist_z(generator);
+
+    double dz = Z_CONE_DIM / k;
+    double sample_z = pos_z + z_level * dz;
+
+    double theta = std::acos(RADIUS / distance);
     double alpha = std::atan2(pos_y, pos_x);
     double min = M_PI + alpha - theta;
     double max = M_PI + alpha + theta;
 
-
     static std::uniform_real_distribution<double> distribution_phi(0, 1);
-
-    double sample_z = pos_z + Z_CONE_DIM * (1 - std::sqrt(1 - u));
     double sample_phi = distribution_phi(generator) * (max - min) + min;
 
     double radius_at_z = RADIUS * (1 - (sample_z / Z_CONE_DIM));

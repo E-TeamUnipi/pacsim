@@ -14,11 +14,11 @@
 #define Y_CONE_DIM 0.228
 #define Z_CONE_DIM 0.325
 #define RADIUS X_CONE_DIM / 2.0
+#define LIDAR_Z 0.5
 
 class lidarModel
 {
 private:
-    /* data */
 public:
     lidarModel(/* args */);
     ~lidarModel();
