@@ -40,7 +40,7 @@ void lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logg
         double c_y = lm.position.y();
         double c_z = lm.position.z();
         double distance = std::sqrt(c_x*c_x + c_y*c_y + c_z*c_z);
-        double surface = getConeFlattedSurface(lm);
+        double surface = getConeFlattedSurface();
         uint32_t samples = sampleOnCone(surface, distance);
         for (uint32_t i = 0; i < samples; ++i){
             auto [x,y,z] = samplePointOnCone(c_x, c_y, c_z, distance);
@@ -54,7 +54,6 @@ void lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logg
             cloud.push_back(point);
         }
     }
-
 
     cloud.width = cloud.points.size();
     cloud.height = 1;
@@ -152,7 +151,7 @@ double lidarModel::getConeFlattedSurface()
 uint32_t lidarModel::sampleOnCone(double surface, double distance) 
 {
         // Calcola il numero di campioni in base alla distanza e all'incertezza
-    int samples = static_cast<int>(std::ceil(TOTAL_RAY * surface / (2*M_PI * distance * distance * sin(  M_PI / 9 ))));
+    int samples = static_cast<int>(std::ceil(this->total_ray * surface / (2*M_PI * distance * distance * sin(  M_PI / 9 ))));
     return samples;
 }
 
@@ -224,4 +223,9 @@ void lidarModel::printConePositions(LandmarkList landmarks, std::shared_ptr<Logg
         }
     }
     outfile.close();
+}
+
+void lidarModel::readConfig(ConfigElement& config)
+{
+    config.getElement<uint32_t>(&this->total_ray, "total_ray");
 }

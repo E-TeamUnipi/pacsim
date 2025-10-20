@@ -103,6 +103,7 @@ std::string main_config_path;
 std::string perception_config_path;
 std::string sensors_config_path;
 std::string vehicle_model_config_path;
+std::string lidar_config_path;
 std::string discipline;
 std::vector<std::string> jointNames
     = { "FL_steer", "FL_rotate", "FR_steer", "FR_rotate", "RR_rotate", "RL_rotate", "steering" };
@@ -467,6 +468,7 @@ void getRos2Params(rclcpp::Node::SharedPtr& node)
     params.push_back({ "perception_config_path", &perception_config_path });
     params.push_back({ "sensors_config_path", &sensors_config_path });
     params.push_back({ "vehicle_model_config_path", &vehicle_model_config_path });
+    params.push_back({ "lidar_config_path", &lidar_config_path });
     params.push_back({ "discipline", &discipline });
 
     for (auto p : params)
@@ -495,7 +497,13 @@ void initPerceptionSensors()
 }
 
 void initLidar(){
+    logger->logInfo("Loading lidar config from: " + lidar_config_path);
+    Config cfg(lidar_config_path);
+    auto lidarConfig = cfg.getElement("lidar");
     lidarSensor = std::make_shared<lidarModel>();
+    lidarSensor->readConfig(lidarConfig);
+    // log total ray
+    logger->logInfo("Lidar total rays: " + std::to_string(lidarSensor->getTotalRay()));
 }
 
 void initSensors()
