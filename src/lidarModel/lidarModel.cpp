@@ -15,12 +15,12 @@ void lidarModel::test(std::shared_ptr<Logger> logger)
     logger->logInfo("lidar model test function called");
 }
 
-void lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger)
+pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger)
 {
     pcl::PointCloud<pcl::PointXYZRGB> cloud;
-    double floorOcclusionsDistance[POINTS_PER_ARCH];
-    fillOcclusionsArray(floorOcclusionsDistance, landmarks);
-    // generateFloorPoints(floorOcclusionsDistance, cloud);
+    std::vector<double> floorOcclusionsDistance(this->points_per_arch);
+    fillOcclusionsArray(floorOcclusionsDistance.data(), landmarks);
+    generateFloorPoints(floorOcclusionsDistance.data(), cloud);
 
     printConePositions(landmarks, logger);
 
@@ -60,13 +60,14 @@ void lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logg
     cloud.is_dense = false;
 
     pcl::io::savePCDFileASCII("cloud_test.pcd", cloud);
+    return cloud;
 
 }
 
 void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
 {
     // Inizializza tutte le distanze a un valore molto grande (nessuna ostruzione)
-    for (int i = 0; i < POINTS_PER_ARCH; ++i) 
+    for (int i = 0; i < this->points_per_arch; ++i)
     {
         occlusions[i] = std::numeric_limits<double>::max();
     }
@@ -74,9 +75,9 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
     double min_angle = -45.0 * M_PI / 180.0;
     double max_angle =  45.0 * M_PI / 180.0;
 
-    for (const auto& lm : landmarks.list) 
+    for (const auto& lm : landmarks.list)
     {
-        if (lm.type != LandmarkType::BLUE && lm.type != LandmarkType::YELLOW && lm.type != LandmarkType::ORANGE) 
+        if (lm.type != LandmarkType::BLUE && lm.type != LandmarkType::YELLOW && lm.type != LandmarkType::ORANGE)
         {
             continue; // skip non-cone landmarks
         }
@@ -91,8 +92,8 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
         double alpha = std::asin(RADIUS / distance);
 
         // Calcola direttamente gli indici degli angoli coperti dal cono senza iterare su tutti
-        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - min_angle) / (max_angle - min_angle) * (POINTS_PER_ARCH - 1))));
-        int end_idx = std::min(POINTS_PER_ARCH - 1, static_cast<int>(std::floor((theta + alpha - min_angle) / (max_angle - min_angle) * (POINTS_PER_ARCH - 1))));
+        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - min_angle) / (max_angle - min_angle) * (this->points_per_arch - 1))));
+        int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - min_angle) / (max_angle - min_angle) * (this->points_per_arch - 1))));
         for (int i = start_idx; i <= end_idx; ++i) {
             if (distance < occlusions[i])
                 occlusions[i] = distance;
@@ -100,22 +101,22 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
     }
 }
 
-void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud) 
+void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud)
 {
     double min_angle = -45.0 * M_PI / 180.0;
     double max_angle =  45.0 * M_PI / 180.0;
     int num_channel = 28; // 28
 
-    for (int i = 0; i < POINTS_PER_ARCH; ++i) 
+    for (int i = 0; i < this->points_per_arch; ++i)
     {
-        double angle = min_angle + (max_angle - min_angle) * i / (POINTS_PER_ARCH - 1);
+        double angle = min_angle + (max_angle - min_angle) * i / (this->points_per_arch - 1);
 
         // Compute the max radius for this direction (obstruction or a max range)
         double max_radius = occlusions[i];
 
         // Instead of radius step, use angle step from the source at height H
         // For each channel, compute the corresponding ground intersection
-        for (int ch = 0; ch < num_channel; ++ch) 
+        for (int ch = 0; ch < num_channel; ++ch)
         {
             // Vertical angle from the source (from -down to +up)
             // Here, we distribute vertical angles between -25 deg and -0.3 deg (example)
@@ -143,12 +144,12 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
     }
 }
 
-double lidarModel::getConeFlattedSurface() 
+double lidarModel::getConeFlattedSurface()
 {
     return X_CONE_DIM * Z_CONE_DIM / 2.0;
 }
 
-uint32_t lidarModel::sampleOnCone(double surface, double distance) 
+uint32_t lidarModel::sampleOnCone(double surface, double distance)
 {
         // Calcola il numero di campioni in base alla distanza e all'incertezza
     int samples = static_cast<int>(std::ceil(this->total_ray * surface / (2*M_PI * distance * distance * sin(  M_PI / 9 ))));
@@ -197,7 +198,7 @@ std::tuple<double, double, double> lidarModel::samplePointOnCone(double pos_x, d
 }
 
 
-void lidarModel::printConePositions(LandmarkList landmarks, std::shared_ptr<Logger> logger) 
+void lidarModel::printConePositions(LandmarkList landmarks, std::shared_ptr<Logger> logger)
 {
     logger->logInfo("Cone positions:");
     std::ofstream outfile("cone_positions.txt", std::ios::app);
@@ -228,4 +229,5 @@ void lidarModel::printConePositions(LandmarkList landmarks, std::shared_ptr<Logg
 void lidarModel::readConfig(ConfigElement& config)
 {
     config.getElement<uint32_t>(&this->total_ray, "total_ray");
+    config.getElement<uint16_t>(&this->points_per_arch, "points_per_arch");
 }

@@ -1,2 +1,3 @@
 lidar:
   total_ray: 72000
+  points_per_arch: 450

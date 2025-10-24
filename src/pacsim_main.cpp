@@ -70,6 +70,7 @@ rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr wheelspeedPub;
 rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr torquesPub;
 rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr voltageSensorTSPub;
 rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr currentSensorTSPub;
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr lidarPub;
 
 rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr jointStatePublisher;
 
@@ -333,9 +334,13 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                 trackPub->publish(createRosTrackMessage(lms, "map", simTime));
                 pacsim::msg::PerceptionDetections lmsMsg
                     = LandmarkListToRosMessage(sensorLms, sensorLms.frame_id, sensorLms.timestamp);
-                
+
                 if (perceptionSensor->getName() == "livox_front")
-                    lidarSensor->generatePointCloud(sensorLms, logger);
+                {
+                    sensor_msgs::msg::PointCloud2 pcdMsg;
+                    pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), pcdMsg );
+                    lidarPub->publish(pcdMsg);
+                }
 
                 perceptionSensorPublisherMap[perceptionSensor]->publish(lmsMsg);
             }
@@ -635,6 +640,7 @@ int main(int argc, char** argv)
 
     trackPub = node->create_publisher<pacsim::msg::Track>("/pacsim/track/landmarks", 1);
 
+
     auto finishSignalServer = node->create_service<std_srvs::srv::Empty>("/pacsim/finish_signal", cbFinishSignal);
     auto clockTriggerAbsoluteServer = node->create_service<pacsim::srv::ClockTriggerAbsolute>(
         "/pacsim/clock_trigger/absolute", cbClockTriggerAbsolute);
@@ -678,6 +684,7 @@ int main(int argc, char** argv)
 
     wheelspeedPub = node->create_publisher<pacsim::msg::Wheels>("/pacsim/wheelspeeds", 1);
     torquesPub = node->create_publisher<pacsim::msg::Wheels>("/pacsim/torques", 1);
+    lidarPub = node->create_publisher<sensor_msgs::msg::PointCloud2>("/pacsim/perception/lidar_pcd", 1);
 
     jointStatePublisher = node->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 3);
 

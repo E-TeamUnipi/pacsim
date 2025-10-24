@@ -6,11 +6,14 @@
 #include "configParser.hpp"
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <random>
+#include <memory>
 
 
 // #define TOTAL_RAY 72000
-#define POINTS_PER_ARCH 450
+// #define POINTS_PER_ARCH 450
 #define X_CONE_DIM 0.228
 #define Y_CONE_DIM 0.228
 #define Z_CONE_DIM 0.325
@@ -21,6 +24,7 @@ class lidarModel
 {
 private:
     uint32_t total_ray;
+    uint16_t points_per_arch;
 public:
     lidarModel(/* args */);
 
@@ -30,7 +34,7 @@ public:
 
     void test(std::shared_ptr<Logger> logger);
 
-    void generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger);
+    pcl::PointCloud<pcl::PointXYZRGB> generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger);
 
     void fillOcclusionsArray(double* array, LandmarkList landmarks);
 
