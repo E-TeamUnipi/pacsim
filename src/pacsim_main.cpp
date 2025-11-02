@@ -131,7 +131,6 @@ double clockStopTime = std::numeric_limits<double>::max();
 
 int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
 {
-
     std::unique_ptr<tf2_ros::TransformBroadcaster> br = std::make_unique<tf2_ros::TransformBroadcaster>(node);
 
     double timestep = 1.0 / 1000.0;
@@ -143,6 +142,8 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
     Eigen::Vector3d start_position;
     Eigen::Vector3d start_orientation;
     Track lms = loadMap(trackName, start_position, start_orientation);
+    // log trackname
+    logger->logInfo("Loaded track: " + trackName);
 
     model->setPosition(start_position);
     model->setOrientation(start_orientation);
