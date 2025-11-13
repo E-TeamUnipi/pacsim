@@ -338,9 +338,11 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
 
                 if (perceptionSensor->getName() == "livox_front")
                 {
-                    sensor_msgs::msg::PointCloud2 pcdMsg;
-                    pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), pcdMsg );
-                    lidarPub->publish(pcdMsg);
+                    sensor_msgs::msg::PointCloud2 cloudMsg;
+                    pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), cloudMsg );
+                    cloudMsg.header.frame_id = "car";
+                    cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(simTime * 1e9));
+                    lidarPub->publish(cloudMsg);
                 }
 
                 perceptionSensorPublisherMap[perceptionSensor]->publish(lmsMsg);

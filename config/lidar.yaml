@@ -1,3 +1,6 @@
 lidar:
   total_ray: 72000
   points_per_arch: 450
+  num_channel: 28
+  min_angle_horizontal: -1.0472
+  max_angle_horizontal: 1.0472

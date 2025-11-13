@@ -12,7 +12,7 @@
 
 
 ## run
-- ```ros2 launch pacsim example.launch.py```
-- monitorare stato macchina ```ros2 launch pacsim example.launch.py```
+- ricordati di sourcare ros e il progetto ```source /opt/ros/jazzy/setup.zsh ; source install/setup.zsh```
 - lanciare bridge ros2-websocket per foxglove ```ros2 launch foxglove_bridge foxglove_bridge_launch.xml```
+- lancia pacsim ```ros2 launch pacsim example.launch.py```
 - apri foxglove, connetti al websocket server, poi alla voce topic rendi visibile `/pacsim/track/visualization/`
