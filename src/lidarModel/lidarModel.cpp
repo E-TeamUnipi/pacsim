@@ -60,9 +60,11 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
     cloud.is_dense = false;
 
     
-    // static int cloud_idx = 0;
-    // std::string filename = "clouds/cloud_test_" + std::to_string(cloud_idx++) + ".pcd";
-    // pcl::io::savePCDFileASCII(filename, cloud);
+    static int cloud_idx = 0;
+    std::ostringstream oss;
+    oss << "clouds/cloud_test_" << std::setw(3) << std::setfill('0') << cloud_idx++ << ".pcd";
+    std::string filename = oss.str();
+    pcl::io::savePCDFileASCII(filename, cloud);
     return cloud;
 
 }
@@ -74,9 +76,6 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
     {
         occlusions[i] = std::numeric_limits<double>::max();
     }
-
-    double min_angle = -45.0 * M_PI / 180.0;
-    double max_angle =  45.0 * M_PI / 180.0;
 
     for (const auto& lm : landmarks.list)
     {
@@ -95,8 +94,8 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
         double alpha = std::asin(RADIUS / distance);
 
         // Calcola direttamente gli indici degli angoli coperti dal cono senza iterare su tutti
-        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - min_angle) / (max_angle - min_angle) * (this->points_per_arch - 1))));
-        int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - min_angle) / (max_angle - min_angle) * (this->points_per_arch - 1))));
+        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
+        int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
         for (int i = start_idx; i <= end_idx; ++i) {
             if (distance < occlusions[i])
                 occlusions[i] = distance;
