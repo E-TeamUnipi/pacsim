@@ -25,6 +25,9 @@ class lidarModel
 private:
     uint32_t total_ray;
     uint16_t points_per_arch;
+    uint16_t num_channel;
+    double min_angle_horizontal;
+    double max_angle_horizontal;
 public:
     lidarModel(/* args */);
 

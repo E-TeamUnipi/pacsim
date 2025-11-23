@@ -22,7 +22,7 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
     fillOcclusionsArray(floorOcclusionsDistance.data(), landmarks);
     generateFloorPoints(floorOcclusionsDistance.data(), cloud);
 
-    printConePositions(landmarks, logger);
+    // printConePositions(landmarks, logger);
 
     for (const auto& lm : landmarks.list) {
         if (lm.type != LandmarkType::BLUE && lm.type != LandmarkType::YELLOW && lm.type != LandmarkType::ORANGE) {
@@ -77,9 +77,6 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
         occlusions[i] = std::numeric_limits<double>::max();
     }
 
-    double min_angle = -45.0 * M_PI / 180.0;
-    double max_angle =  45.0 * M_PI / 180.0;
-
     for (const auto& lm : landmarks.list)
     {
         if (lm.type != LandmarkType::BLUE && lm.type != LandmarkType::YELLOW && lm.type != LandmarkType::ORANGE)
@@ -97,8 +94,8 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
         double alpha = std::asin(RADIUS / distance);
 
         // Calcola direttamente gli indici degli angoli coperti dal cono senza iterare su tutti
-        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - min_angle) / (max_angle - min_angle) * (this->points_per_arch - 1))));
-        int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - min_angle) / (max_angle - min_angle) * (this->points_per_arch - 1))));
+        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
+        int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
         for (int i = start_idx; i <= end_idx; ++i) {
             if (distance < occlusions[i])
                 occlusions[i] = distance;
@@ -108,26 +105,22 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
 
 void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud)
 {
-    double min_angle = -45.0 * M_PI / 180.0;
-    double max_angle =  45.0 * M_PI / 180.0;
-    int num_channel = 28; // 28
-
     for (int i = 0; i < this->points_per_arch; ++i)
     {
-        double angle = min_angle + (max_angle - min_angle) * i / (this->points_per_arch - 1);
+        double angle = this->min_angle_horizontal + (this->max_angle_horizontal - this->min_angle_horizontal) * i / (this->points_per_arch - 1);
 
         // Compute the max radius for this direction (obstruction or a max range)
         double max_radius = occlusions[i];
 
         // Instead of radius step, use angle step from the source at height H
         // For each channel, compute the corresponding ground intersection
-        for (int ch = 0; ch < num_channel; ++ch)
+        for (int ch = 0; ch < this->num_channel; ++ch)
         {
             // Vertical angle from the source (from -down to +up)
             // Here, we distribute vertical angles between -25 deg and -0.3 deg (example)
             double min_vert_angle = -25.0 * M_PI / 180.0;
             double max_vert_angle = -0.3 * M_PI / 180.0;
-            double vert_angle = min_vert_angle + (max_vert_angle - min_vert_angle) * ch / (num_channel - 1);
+            double vert_angle = min_vert_angle + (max_vert_angle - min_vert_angle) * ch / (this->num_channel - 1);
 
             // Avoid division by zero for horizontal rays
             if (std::abs(std::tan(vert_angle)) < 1e-6) continue;
@@ -235,4 +228,7 @@ void lidarModel::readConfig(ConfigElement& config)
 {
     config.getElement<uint32_t>(&this->total_ray, "total_ray");
     config.getElement<uint16_t>(&this->points_per_arch, "points_per_arch");
+    config.getElement<uint16_t>(&this->num_channel, "num_channel");
+    config.getElement<double>(&this->min_angle_horizontal, "min_angle_horizontal");
+    config.getElement<double>(&this->max_angle_horizontal, "max_angle_horizontal");
 }
