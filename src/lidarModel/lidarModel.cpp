@@ -59,7 +59,12 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
     cloud.height = 1;
     cloud.is_dense = false;
 
-    pcl::io::savePCDFileASCII("cloud_test.pcd", cloud);
+    
+    // static int cloud_idx = 0;
+    // std::ostringstream oss;
+    // oss << "clouds/cloud_test_" << std::setw(3) << std::setfill('0') << cloud_idx++ << ".pcd";
+    // std::string filename = oss.str();
+    // pcl::io::savePCDFileASCII(filename, cloud);
     return cloud;
 
 }
