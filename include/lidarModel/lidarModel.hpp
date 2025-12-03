@@ -52,6 +52,8 @@ public:
     void printConePositions(LandmarkList landmarks, std::shared_ptr<Logger> logger);
 
     uint32_t getTotalRay() { return total_ray; }
+
+    int countChannelsFast(double D);
 };
 
 

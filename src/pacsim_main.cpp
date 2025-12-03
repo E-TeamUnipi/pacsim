@@ -343,7 +343,6 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                     cloudMsg.header.frame_id = "car";
                     cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(simTime * 1e9));
                     lidarPub->publish(cloudMsg);
-                    logger->logInfo("[ PC GEN ] Simulation time: " + std::to_string(simTime));
 
                 }
 
@@ -385,13 +384,6 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
         jointStatePublisher->publish(jointStamped);
         mutexSimTime.lock();
         simTime += timestep;
-        
-        // TEMPORARY: Log simulation time every N iterations (remove later)
-        static int iterationCounter = 0;
-        static const int printEveryNIterations = 1;
-        if (++iterationCounter % printEveryNIterations == 0)
-            logger->logInfo("Simulation time: " + std::to_string(simTime) );
-        // END TEMPORARY
         
         mutexSimTime.unlock();
         if (simTime >= clockStopTime)

@@ -43,7 +43,7 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
         double surface = getConeFlattedSurface();
         uint32_t samples = sampleOnCone(surface, distance);
         for (uint32_t i = 0; i < samples; ++i){
-            auto [x,y,z] = samplePointOnCone(c_x, c_y, c_z, distance);
+            auto [x,y,z] = samplePointOnCone(c_x, c_y, c_z, distance, logger);
             pcl::PointXYZRGB point;
             point.x = x;
             point.y = y;
@@ -154,10 +154,28 @@ uint32_t lidarModel::sampleOnCone(double surface, double distance)
     return samples;
 }
 
+int lidarModel::countChannelsFast(double D)
+{
+    double min_vert_angle = 25.0 * M_PI / 180.0;
+    double max_vert_angle = 0.3  * M_PI / 180.0;
+
+    double delta = (max_vert_angle - min_vert_angle) / (this->num_channel - 1);
+
+    double theta_thr = atan(LIDAR_Z / D);
+
+    int k_min = static_cast<int>(std::ceil(
+        (theta_thr - min_vert_angle) / delta
+    ));
+
+    if (k_min < 0) return this->num_channel;
+    if (k_min >= this->num_channel) return 0;
+    return this->num_channel - k_min;
+}
+
 // Implementazione del metodo sampleSurface con z discreta e probabilità decrescente linearmente per valori alti
 std::tuple<double, double, double> lidarModel::samplePointOnCone(double pos_x, double pos_y, double pos_z, double distance)  {
     // K è il numero di livelli in cui dividere la z del cono
-    int k = 28 - std::atan2(LIDAR_Z, distance) / (24.7 * M_PI / 180.0 / 28.0);
+    int k = countChannelsFast(distance);
 
     static std::default_random_engine generator;
 
