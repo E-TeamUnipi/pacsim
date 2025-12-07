@@ -43,7 +43,7 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
         double surface = getConeFlattedSurface();
         uint32_t samples = sampleOnCone(surface, distance);
         for (uint32_t i = 0; i < samples; ++i){
-            auto [x,y,z] = samplePointOnCone(c_x, c_y, c_z, distance, logger);
+            auto [x,y,z] = samplePointOnCone(c_x, c_y, c_z, distance);
             pcl::PointXYZRGB point;
             point.x = x;
             point.y = y;
@@ -59,7 +59,7 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
     cloud.height = 1;
     cloud.is_dense = false;
 
-    
+
     // static int cloud_idx = 0;
     // std::ostringstream oss;
     // oss << "clouds/cloud_test_" << std::setw(3) << std::setfill('0') << cloud_idx++ << ".pcd";
