@@ -210,8 +210,8 @@ track:
   - position: [11.905376415773734, -1.5039988027716558, 0.0]
     class: yellow
   time_keeping:
-  - position: [15.0, 0.0, 0.0]
+  - position: [1.8588226907680678, 9.857393057103389, 0.0]
     class: timekeeping
-  - position: [-15.0, 1.83697019872103e-15, 0.0]
+  - position: [3.7176453815361357, 16.560420335933696, 0.0]
     class: timekeeping
   unknown: []
