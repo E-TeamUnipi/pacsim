@@ -98,7 +98,7 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
         int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
         for (int i = start_idx; i <= end_idx; ++i) {
             if (distance < occlusions[i])
-                occlusions[i] = distance;
+                occlusions[i] = distance - RADIUS;
         }
     }
 }
