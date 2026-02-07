@@ -341,7 +341,7 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                     sensor_msgs::msg::PointCloud2 cloudMsg;
                     pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), cloudMsg );
                     cloudMsg.header.frame_id = "car";
-                    cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(simTime * 1e9));
+                    cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(sensorLms.timestamp * 1e9));
                     lidarPub->publish(cloudMsg);
 
                 }
