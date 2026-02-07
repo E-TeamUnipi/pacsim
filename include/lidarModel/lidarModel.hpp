@@ -18,7 +18,6 @@
 #define Y_CONE_DIM 0.228
 #define Z_CONE_DIM 0.325
 #define RADIUS X_CONE_DIM / 2.0
-#define LIDAR_Z 0.5
 
 class lidarModel
 {
@@ -28,6 +27,7 @@ private:
     uint16_t num_channel;
     double min_angle_horizontal;
     double max_angle_horizontal;
+    double lidar_z;
 public:
     lidarModel(/* args */);
 

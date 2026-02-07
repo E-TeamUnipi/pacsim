@@ -38,7 +38,7 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
 
         double c_x = lm.position.x();
         double c_y = lm.position.y();
-        double c_z = lm.position.z();
+        double c_z = lm.position.z() - this->lidar_z; // Adjust for LiDAR height
         double distance = std::sqrt(c_x*c_x + c_y*c_y + c_z*c_z);
         double surface = getConeFlattedSurface();
         uint32_t samples = sampleOnCone(surface, distance);
@@ -126,14 +126,14 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
             if (std::abs(std::tan(vert_angle)) < 1e-6) continue;
 
             // Compute ground intersection distance (r) from the source at height H
-            double r = LIDAR_Z / -std::tan(vert_angle); // negative tan for downward angles
+            double r = this->lidar_z / -std::tan(vert_angle); // negative tan for downward angles
 
             if (r <= 0 || r > max_radius) continue;
 
             pcl::PointXYZRGB point;
             point.x = r * cos(angle);
             point.y = r * sin(angle);
-            point.z = 0.0;
+            point.z = -this->lidar_z; // Ground level
             point.r = 128;
             point.g = 128;
             point.b = 128;
@@ -161,7 +161,7 @@ int lidarModel::countChannelsFast(double D)
 
     double delta = (max_vert_angle - min_vert_angle) / (this->num_channel - 1);
 
-    double theta_thr = atan(LIDAR_Z / D);
+    double theta_thr = atan(this->lidar_z / D);
 
     int k_min = static_cast<int>(std::ceil(
         (theta_thr - min_vert_angle) / delta
@@ -249,4 +249,5 @@ void lidarModel::readConfig(ConfigElement& config)
     config.getElement<uint16_t>(&this->num_channel, "num_channel");
     config.getElement<double>(&this->min_angle_horizontal, "min_angle_horizontal");
     config.getElement<double>(&this->max_angle_horizontal, "max_angle_horizontal");
+    config.getElement<double>(&this->lidar_z, "lidar_z");
 }
