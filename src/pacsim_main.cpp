@@ -23,6 +23,10 @@
 
 #include "track/trackLoader.hpp"
 
+#include "middleLine/middleLineComputer.hpp"
+#include "middleLine/middleLineViz.hpp"
+#include <nav_msgs/msg/path.hpp>
+
 #include "logger.hpp"
 #include "sensorModels/imuSensor.hpp"
 #include "sensorModels/perceptionSensor.hpp"
@@ -71,6 +75,9 @@ rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr torquesPub;
 rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr voltageSensorTSPub;
 rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr currentSensorTSPub;
 rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr lidarPub;
+rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr middleLinePub;
+rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr gatesVizPub;
+rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr delaunayVizPub;
 
 rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr jointStatePublisher;
 
@@ -168,6 +175,31 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
     visualization_msgs::msg::MarkerArray mapMarkerMsg = mapMarkersWrapper.markerFromLMs(lms, trackFrame, 0.0);
     mapVizPub->publish(mapMarkerMsg);
     trackPub->publish(createRosTrackMessage(lms, "map", 0.0));
+
+    // Compute and publish middle line (once at startup)
+    {
+        double yaw = start_orientation.z();
+        auto mlResult = computeMiddleLine(lms, start_position, yaw);
+        nav_msgs::msg::Path pathMsg;
+        pathMsg.header.frame_id = trackFrame;
+        pathMsg.header.stamp = rclcpp::Time(0, 0);
+        for (const auto& pt : mlResult.midpoints)
+        {
+            geometry_msgs::msg::PoseStamped pose;
+            pose.header = pathMsg.header;
+            pose.pose.position.x = pt.x();
+            pose.pose.position.y = pt.y();
+            pose.pose.position.z = pt.z();
+            pose.pose.orientation.w = 1.0;
+            pathMsg.poses.push_back(pose);
+        }
+        middleLinePub->publish(pathMsg);
+        gatesVizPub->publish(createGatesMarkerArray(mlResult.gates, trackFrame, 0.0));
+        delaunayVizPub->publish(createDelaunayMarkerArray(mlResult.delaunayEdges, trackFrame, 0.0));
+        logger->logInfo("Middle line published with " + std::to_string(mlResult.midpoints.size()) + " points, "
+            + std::to_string(mlResult.gates.size()) + " gates, "
+            + std::to_string(mlResult.delaunayEdges.size()) + " Delaunay edges");
+    }
 
     deadTimeSteeringFront = DeadTime<double>(0.05);
     deadTimeSteeringRear = DeadTime<double>(0.05);
@@ -644,6 +676,13 @@ int main(int argc, char** argv)
     mapVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>("/pacsim/track/visualization", 1);
 
     trackPub = node->create_publisher<pacsim::msg::Track>("/pacsim/track/landmarks", 1);
+
+    // Middle line publisher with transient_local durability so late Foxglove subscribers receive it
+    rclcpp::QoS middleLineQos(1);
+    middleLineQos.transient_local();
+    middleLinePub = node->create_publisher<nav_msgs::msg::Path>("/pacsim/track/middle_line", middleLineQos);
+    gatesVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>("/pacsim/track/gates_viz", middleLineQos);
+    delaunayVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>("/pacsim/track/delaunay_viz", middleLineQos);
 
 
     auto finishSignalServer = node->create_service<std_srvs::srv::Empty>("/pacsim/finish_signal", cbFinishSignal);
