@@ -41,6 +41,7 @@ struct Track
     bool lanesFirstWithLastConnected = true;
     std::vector<Landmark> left_lane;
     std::vector<Landmark> right_lane;
+    std::vector<Landmark> centerline_raw;
     std::vector<Landmark> unknown;
     std::vector<std::pair<Landmark, Landmark>> time_keeping_gates;
     Eigen::Vector3d gnssOrigin;

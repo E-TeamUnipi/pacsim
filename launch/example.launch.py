@@ -18,7 +18,7 @@ def getFullFilePath(name, dir):
 
 
 def generate_launch_description():
-  track_name = "circular.yaml"
+  track_name = "FSE32_with_path.yaml"
   track_frame = "map"
   realtime_ratio = 1.0
   discipline = "autocross"

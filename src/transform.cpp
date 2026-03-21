@@ -74,6 +74,15 @@ Track transformTrack(Track& in, Eigen::Vector3d trans, Eigen::Vector3d rot)
         temp.id = lm.id;
         out.right_lane.push_back(temp);
     }
+    out.centerline_raw.clear();
+    for (auto& lm : in.centerline_raw)
+    {
+        Landmark temp = lm;
+        temp.position = rotationMatrix * lm.position;
+        temp.position += transInverse;
+        temp.id = lm.id;
+        out.centerline_raw.push_back(temp);
+    }
     out.unknown.clear();
     for (auto& lm : in.unknown)
     {
