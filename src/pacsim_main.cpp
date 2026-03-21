@@ -22,6 +22,7 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 
 #include "track/trackLoader.hpp"
+#include "track/centerlinePublisher.hpp"
 
 #include "logger.hpp"
 #include "sensorModels/imuSensor.hpp"
@@ -64,7 +65,6 @@ rclcpp::Publisher<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr vel
 rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub;
 rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr mapVizPub;
 rclcpp::Publisher<pacsim::msg::Track>::SharedPtr trackPub;
-rclcpp::Publisher<pacsim::msg::PerceptionDetections>::SharedPtr centerlineRawPub;
 rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr steeringFrontPub;
 rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr steeringRearPub;
 rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr wheelspeedPub;
@@ -124,6 +124,7 @@ std::shared_ptr<WheelsSensor> torquesSensor;
 std::shared_ptr<ScalarValueSensor> currentSensorTS;
 std::shared_ptr<ScalarValueSensor> voltageSensorTS;
 std::shared_ptr<lidarModel> lidarSensor;
+std::shared_ptr<CenterlinePublisher> centerlinePublisher;
 
 std::shared_ptr<Logger> logger;
 
@@ -163,18 +164,13 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
     }
 
     LandmarkList trackAsLMList = trackToLMList(lms);
-    LandmarkList centerlineRawAsLMList;
-    centerlineRawAsLMList.list = lms.centerline_raw;
 
     LandmarksMarkerWrapper mapMarkersWrapper(0.8, "pacsim");
 
     visualization_msgs::msg::MarkerArray mapMarkerMsg = mapMarkersWrapper.markerFromLMs(lms, trackFrame, 0.0);
     mapVizPub->publish(mapMarkerMsg);
     trackPub->publish(createRosTrackMessage(lms, "map", 0.0));
-    if (!centerlineRawAsLMList.list.empty())
-    {
-        centerlineRawPub->publish(LandmarkListToRosMessage(centerlineRawAsLMList, "map", 0.0));
-    }
+    centerlinePublisher->setTrack(lms, "map", 0.0);
 
     deadTimeSteeringFront = DeadTime<double>(0.05);
     deadTimeSteeringRear = DeadTime<double>(0.05);
@@ -204,6 +200,8 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
         auto t = model->getPosition();
         auto rEulerAngles = model->getOrientation();
         auto alpha = model->getAngularAcceleration();
+        centerlinePublisher->publishFront(simTime, t, rEulerAngles);
+
         finish = cl->performAllChecks(lms, simTime, t, rEulerAngles);
         // geometry_msgs::msg::TransformStamped static_transform = createStaticTransform("map", "center", simTime);
         geometry_msgs::msg::TransformStamped transformStamped
@@ -340,10 +338,6 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
 
                 mapVizPub->publish(mapMarkerMsg);
                 trackPub->publish(createRosTrackMessage(lms, "map", simTime));
-                if (!centerlineRawAsLMList.list.empty())
-                {
-                    centerlineRawPub->publish(LandmarkListToRosMessage(centerlineRawAsLMList, "map", simTime));
-                }
                 pacsim::msg::PerceptionDetections lmsMsg
                     = LandmarkListToRosMessage(sensorLms, sensorLms.frame_id, sensorLms.timestamp);
 
@@ -655,7 +649,8 @@ int main(int argc, char** argv)
     mapVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>("/pacsim/track/visualization", 1);
 
     trackPub = node->create_publisher<pacsim::msg::Track>("/pacsim/track/landmarks", 1);
-    centerlineRawPub = node->create_publisher<pacsim::msg::PerceptionDetections>("/pacsim/track/centerline_raw", 1);
+    centerlinePublisher = std::make_shared<CenterlinePublisher>();
+    centerlinePublisher->initialize(node);
 
 
     auto finishSignalServer = node->create_service<std_srvs::srv::Empty>("/pacsim/finish_signal", cbFinishSignal);
