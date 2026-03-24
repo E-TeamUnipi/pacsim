@@ -59,6 +59,8 @@ void CenterlinePublisher::setTrack(const Track& track, const std::string& frameI
     centerlineRawMapFrame.timestamp = time;
 
     hasCenterlineRaw = !centerlineRawMapFrame.list.empty();
+    hasLastClosestIdx = false;
+    lastClosestIdx = 0;
 
     if (hasCenterlineRaw)
     {
@@ -84,6 +86,7 @@ void CenterlinePublisher::publishFront(double time, const Eigen::Vector3d& trans
         return;
     }
 
+    ++frontPublishCallCounter;
     centerlineRawMapFrame.timestamp = time;
 
     const auto& centerlinePoints = centerlineRawMapFrame.list;
@@ -95,15 +98,53 @@ void CenterlinePublisher::publishFront(double time, const Eigen::Vector3d& trans
 
     std::size_t closestIdx = 0;
     double closestDistSq = std::numeric_limits<double>::infinity();
-    for (std::size_t idx = 0; idx < pointCount; ++idx)
+
+    constexpr std::size_t localSearchWindow = 50;
+    constexpr std::size_t fullScanResyncInterval = 100;
+    const bool doFullScan = !hasLastClosestIdx || pointCount <= (2 * localSearchWindow + 1)
+        || (frontPublishCallCounter % fullScanResyncInterval == 0);
+
+    if (doFullScan)
     {
-        const double distSq = (centerlinePoints[idx].position - trans).squaredNorm();
-        if (distSq < closestDistSq)
+        for (std::size_t idx = 0; idx < pointCount; ++idx)
         {
-            closestDistSq = distSq;
-            closestIdx = idx;
+            const double distSq = (centerlinePoints[idx].position - trans).squaredNorm();
+            if (distSq < closestDistSq)
+            {
+                closestDistSq = distSq;
+                closestIdx = idx;
+            }
         }
     }
+    else
+    {
+        closestIdx = lastClosestIdx;
+        closestDistSq = (centerlinePoints[closestIdx].position - trans).squaredNorm();
+
+        const std::size_t maxOffset = std::min(localSearchWindow, pointCount - 1);
+        for (std::size_t offset = 1; offset <= maxOffset; ++offset)
+        {
+            const std::size_t idxForward = (lastClosestIdx + offset) % pointCount;
+            const std::size_t idxBackward = (lastClosestIdx + pointCount - offset) % pointCount;
+
+            const double distForwardSq = (centerlinePoints[idxForward].position - trans).squaredNorm();
+            if (distForwardSq < closestDistSq)
+            {
+                closestDistSq = distForwardSq;
+                closestIdx = idxForward;
+            }
+
+            const double distBackwardSq = (centerlinePoints[idxBackward].position - trans).squaredNorm();
+            if (distBackwardSq < closestDistSq)
+            {
+                closestDistSq = distBackwardSq;
+                closestIdx = idxBackward;
+            }
+        }
+    }
+
+    lastClosestIdx = closestIdx;
+    hasLastClosestIdx = true;
 
     constexpr double lookaheadDistanceM = 20.0;
     constexpr std::size_t maxFrontPoints = 300;

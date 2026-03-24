@@ -16,6 +16,8 @@ public:
 private:
     LandmarkList centerlineRawMapFrame;
     bool hasCenterlineRaw = false;
+    bool hasLastClosestIdx = false;
+    std::size_t lastClosestIdx = 0;
     std::string mapFrame = "map";
     std::size_t rawPublishCallCounter = 0;
     std::size_t frontPublishCallCounter = 0;
