@@ -46,9 +46,9 @@ void CenterlinePublisher::initialize(std::shared_ptr<rclcpp::Node> node)
     auto latchedQos = rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local();
 
     centerlineRawVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>(
-        "/pacsim/track/centerline_raw/viz", latchedQos);
+        "/pacsim/track/centerline_raw", latchedQos);
     centerlineRawFrontVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>(
-        "/pacsim/track/centerline_raw_front/viz", latchedQos);
+        "/pacsim/track/centerline_raw_front", latchedQos);
 }
 
 void CenterlinePublisher::setTrack(const Track& track, const std::string& frameId, double time)
