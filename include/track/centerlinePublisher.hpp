@@ -18,12 +18,21 @@ private:
     bool hasCenterlineRaw = false;
     bool hasLastClosestIdx = false;
     std::size_t lastClosestIdx = 0;
+
+    LandmarkList centerlineSmoothedMapFrame;
+    bool hasCenterlineSmoothed = false;
+    bool hasLastClosestIdxSmoothed = false;
+    std::size_t lastClosestIdxSmoothed = 0;
+
     std::string mapFrame = "map";
     std::size_t rawPublishCallCounter = 0;
     std::size_t frontPublishCallCounter = 0;
+    std::size_t frontPublishCallCounterSmoothed = 0;
 
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr centerlineRawVizPub;
     rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr centerlineRawFrontVizPub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr centerlineSmoothedVizPub;
+    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr centerlineSmoothedFrontVizPub;
 };
 
 #endif /* CENTERLINE_PUBLISHER_HPP */
