@@ -84,9 +84,9 @@ Track loadMap(string mapPath, Eigen::Vector3d& start_position, Eigen::Vector3d& 
         centerline_raw = track["centerline_raw"];
     }
     Node centerline_smoothed;
-    if (track["centerline_smoothed"])
+    if (track["centerline_smoot"])
     {
-        centerline_smoothed = track["centerline_smoothed"];
+        centerline_smoothed = track["centerline_smoot"];
     }
     // TODO: Catch pos or orientation size != 3
     std::vector<double> start_pos = track["start"]["position"].as<vector<double>>();
