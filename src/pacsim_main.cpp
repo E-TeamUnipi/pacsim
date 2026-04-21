@@ -340,7 +340,7 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                 {
                     sensor_msgs::msg::PointCloud2 cloudMsg;
                     pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), cloudMsg );
-                    cloudMsg.header.frame_id = "car";
+                    cloudMsg.header.frame_id = "lidar";
                     cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(sensorLms.timestamp * 1e9));
                     lidarPub->publish(cloudMsg);
 
@@ -615,6 +615,21 @@ void handleTf2StaticTransforms()
 
             tf_static_broadcaster_->sendTransform(t);
         }
+
+        // Add lidar static tf
+        // this allows the trasformation from lidar to car frame
+        geometry_msgs::msg::TransformStamped t_lidar;
+        t_lidar.header.stamp = rclcpp::Time(0, 0);
+        t_lidar.header.frame_id = "car";
+        t_lidar.child_frame_id = "lidar";
+        t_lidar.transform.translation.x = lidarSensor->getLidarX();
+        t_lidar.transform.translation.y = lidarSensor->getLidarY();
+        t_lidar.transform.translation.z = lidarSensor->getLidarZ();
+        t_lidar.transform.rotation.x = 0.0;
+        t_lidar.transform.rotation.y = 0.0;
+        t_lidar.transform.rotation.z = 0.0;
+        t_lidar.transform.rotation.w = 1.0;
+        tf_static_broadcaster_->sendTransform(t_lidar);
     }
 }
 
