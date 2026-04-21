@@ -55,6 +55,19 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
         }
     }
 
+    static std::default_random_engine generator(std::random_device{}());
+
+    for (auto& point : cloud.points) {
+        double D = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
+        if (D > 0) {
+            double std_dev = D * std::tan(this->angular_uncertainty);
+            std::normal_distribution<double> dist(0.0, std_dev);
+            point.x += dist(generator);
+            point.y += dist(generator);
+            point.z += dist(generator);
+        }
+    }
+
     cloud.width = cloud.points.size();
     cloud.height = 1;
     cloud.is_dense = false;
@@ -250,4 +263,9 @@ void lidarModel::readConfig(ConfigElement& config)
     config.getElement<double>(&this->min_angle_horizontal, "min_angle_horizontal");
     config.getElement<double>(&this->max_angle_horizontal, "max_angle_horizontal");
     config.getElement<double>(&this->lidar_z, "lidar_z");
+    try {
+        config.getElement<double>(&this->angular_uncertainty, "angular_uncertainty");
+    } catch (const std::exception& e) {
+        this->angular_uncertainty = 0.005; // default fallback
+    }
 }

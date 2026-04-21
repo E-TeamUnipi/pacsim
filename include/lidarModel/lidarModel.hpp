@@ -28,6 +28,7 @@ private:
     double min_angle_horizontal;
     double max_angle_horizontal;
     double lidar_z;
+    double angular_uncertainty;
 public:
     lidarModel(/* args */);
 

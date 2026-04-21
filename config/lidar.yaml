@@ -5,3 +5,4 @@ lidar:
   min_angle_horizontal: -1.0472
   max_angle_horizontal: 1.0472
   lidar_z: 0.5
+  angular_uncertainty: 0.005
