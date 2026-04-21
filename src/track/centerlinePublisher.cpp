@@ -171,8 +171,8 @@ void CenterlinePublisher::publishFront(double time, const Eigen::Vector3d& trans
         lastIdx = closestIdx;
         hasLastIdx = true;
 
-        constexpr double lookaheadDistanceM = 20.0;
-        constexpr std::size_t maxFrontPoints = 300;
+        const double lookaheadDistanceM = lookaheadDistanceM_;
+        const std::size_t maxFrontPoints = maxFrontPoints_;
 
         LandmarkList centerlineFrontMapFrame;
         centerlineFrontMapFrame.frame_id = mapFrame;

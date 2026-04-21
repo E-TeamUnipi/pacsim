@@ -589,6 +589,13 @@ MainConfig fillMainConfig(std::string path)
 
     config.getElement<bool>(&ret.pre_transform_track, "pre_transform_track");
 
+    if (config.hasElement("centerline"))
+    {
+        auto centerline_cfg = config.getElement("centerline");
+        centerline_cfg.getElement<double>(&ret.centerline_lookahead_distance, "lookahead_distance");
+        centerline_cfg.getElement<int>(&ret.centerline_max_front_points, "max_front_points");
+    }
+
     ret.discipline = stringToDiscipline(discipline);
     return ret;
 }
@@ -661,6 +668,8 @@ int main(int argc, char** argv)
 
     getRos2Params(node);
     mainConfig = fillMainConfig(main_config_path);
+    centerlinePublisher->setParameters(mainConfig.centerline_lookahead_distance, mainConfig.centerline_max_front_points);
+
     initPerceptionSensors();
     initSensors();
     initLidar();

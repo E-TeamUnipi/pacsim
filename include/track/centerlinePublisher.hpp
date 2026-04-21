@@ -12,6 +12,10 @@ public:
     void setTrack(const Track& track, const std::string& frameId, double time);
     void publishRaw(double time);
     void publishFront(double time, const Eigen::Vector3d& trans, const Eigen::Vector3d& rot);
+    void setParameters(double lookaheadDist, std::size_t maxPoints) {
+        lookaheadDistanceM_ = lookaheadDist;
+        maxFrontPoints_ = maxPoints;
+    }
 
 private:
     LandmarkList centerlineRawMapFrame;
@@ -23,6 +27,9 @@ private:
     bool hasCenterlineSmoothed = false;
     bool hasLastClosestIdxSmoothed = false;
     std::size_t lastClosestIdxSmoothed = 0;
+
+    double lookaheadDistanceM_ = 20.0;
+    std::size_t maxFrontPoints_ = 300;
 
     std::string mapFrame = "map";
     std::size_t rawPublishCallCounter = 0;

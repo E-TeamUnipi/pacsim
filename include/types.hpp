@@ -194,6 +194,8 @@ struct MainConfig
     std::string cog_frame_id_pipeline;
     bool broadcast_sensors_tf2;
     bool pre_transform_track;
+    double centerline_lookahead_distance = 20.0;
+    int centerline_max_front_points = 300;
 };
 
 Discipline stringToDiscipline(const std::string& disciplineStr);
