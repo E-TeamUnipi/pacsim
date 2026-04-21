@@ -16,5 +16,5 @@ pacsim:
 
   pre_transform_track: true # transform track such that starting pose also seems to be the origin of the track
   centerline:
-    lookahead_distance: 10.0
+    lookahead_distance: 20.0
     max_front_points: 300
