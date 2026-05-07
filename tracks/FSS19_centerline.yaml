@@ -1208,7 +1208,7 @@ track:
     - 21.6965
     - -29.618
     - 0.0
-  centerline_smoot:
+  centerline_smooth:
   - position:
     - 2.4339685226853565
     - -0.3990227490210712
