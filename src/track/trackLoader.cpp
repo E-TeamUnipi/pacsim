@@ -33,6 +33,22 @@ void addLandmarks(std::vector<Landmark>* _ret, Node* list, int* _coneCounter)
     }
 }
 
+void addCenterlineRaw(std::vector<Landmark>* _ret, Node* list, int* _coneCounter)
+{
+    Landmark lm;
+    for (const_iterator it = list->begin(); it != list->end(); ++it)
+    {
+        const Node& position = *it;
+        vector<double> vi = position["position"].as<vector<double>>();
+        lm.id = *_coneCounter;
+        (*_coneCounter)++;
+        lm.position = Eigen::Vector3d(vi[0], vi[1], vi[2]);
+        lm.type = LandmarkType::UNKNOWN;
+        lm.typeWeights[lm.type] = 1.0;
+        _ret->push_back(lm);
+    }
+}
+
 void addTimeKeepings(std::vector<std::pair<Landmark, Landmark>>* _ret, Node* list, int* _coneCounter)
 {
     Landmark lm;
@@ -62,6 +78,16 @@ Track loadMap(string mapPath, Eigen::Vector3d& start_position, Eigen::Vector3d& 
     Node right = fillChildNode(track, "right");
     Node time_keeping = fillChildNode(track, "time_keeping");
     Node unknown = fillChildNode(track, "unknown");
+    Node centerline_raw;
+    if (track["centerline_raw"])
+    {
+        centerline_raw = track["centerline_raw"];
+    }
+    Node centerline_smoothed;
+    if (track["centerline_smooth"])
+    {
+        centerline_smoothed = track["centerline_smooth"];
+    }
     // TODO: Catch pos or orientation size != 3
     std::vector<double> start_pos = track["start"]["position"].as<vector<double>>();
     std::vector<double> start_or = track["start"]["orientation"].as<vector<double>>();
@@ -88,6 +114,14 @@ Track loadMap(string mapPath, Eigen::Vector3d& start_position, Eigen::Vector3d& 
     addLandmarks(&ret.right_lane, &right, &coneCounter);
     addTimeKeepings(&ret.time_keeping_gates, &time_keeping, &coneCounter);
     addLandmarks(&ret.unknown, &unknown, &coneCounter);
+    if (centerline_raw)
+    {
+        addCenterlineRaw(&ret.centerline_raw, &centerline_raw, &coneCounter);
+    }
+    if (centerline_smoothed)
+    {
+        addCenterlineRaw(&ret.centerline_smoothed, &centerline_smoothed, &coneCounter);
+    }
 
     return ret;
 }

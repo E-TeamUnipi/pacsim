@@ -22,6 +22,7 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 
 #include "track/trackLoader.hpp"
+#include "track/centerlinePublisher.hpp"
 
 #include "logger.hpp"
 #include "sensorModels/imuSensor.hpp"
@@ -123,6 +124,7 @@ std::shared_ptr<WheelsSensor> torquesSensor;
 std::shared_ptr<ScalarValueSensor> currentSensorTS;
 std::shared_ptr<ScalarValueSensor> voltageSensorTS;
 std::shared_ptr<lidarModel> lidarSensor;
+std::shared_ptr<CenterlinePublisher> centerlinePublisher;
 
 std::shared_ptr<Logger> logger;
 
@@ -168,6 +170,7 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
     visualization_msgs::msg::MarkerArray mapMarkerMsg = mapMarkersWrapper.markerFromLMs(lms, trackFrame, 0.0);
     mapVizPub->publish(mapMarkerMsg);
     trackPub->publish(createRosTrackMessage(lms, "map", 0.0));
+    centerlinePublisher->setTrack(lms, "map", 0.0);
 
     deadTimeSteeringFront = DeadTime<double>(0.05);
     deadTimeSteeringRear = DeadTime<double>(0.05);
@@ -197,6 +200,8 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
         auto t = model->getPosition();
         auto rEulerAngles = model->getOrientation();
         auto alpha = model->getAngularAcceleration();
+        centerlinePublisher->publishFront(simTime, t, rEulerAngles);
+
         finish = cl->performAllChecks(lms, simTime, t, rEulerAngles);
         // geometry_msgs::msg::TransformStamped static_transform = createStaticTransform("map", "center", simTime);
         geometry_msgs::msg::TransformStamped transformStamped
@@ -584,6 +589,13 @@ MainConfig fillMainConfig(std::string path)
 
     config.getElement<bool>(&ret.pre_transform_track, "pre_transform_track");
 
+    if (config.hasElement("centerline"))
+    {
+        auto centerline_cfg = config.getElement("centerline");
+        centerline_cfg.getElement<double>(&ret.centerline_lookahead_distance, "lookahead_distance");
+        centerline_cfg.getElement<int>(&ret.centerline_max_front_points, "max_front_points");
+    }
+
     ret.discipline = stringToDiscipline(discipline);
     return ret;
 }
@@ -659,6 +671,8 @@ int main(int argc, char** argv)
     mapVizPub = node->create_publisher<visualization_msgs::msg::MarkerArray>("/pacsim/track/visualization", 1);
 
     trackPub = node->create_publisher<pacsim::msg::Track>("/pacsim/track/landmarks", 1);
+    centerlinePublisher = std::make_shared<CenterlinePublisher>();
+    centerlinePublisher->initialize(node);
 
 
     auto finishSignalServer = node->create_service<std_srvs::srv::Empty>("/pacsim/finish_signal", cbFinishSignal);
@@ -669,6 +683,8 @@ int main(int argc, char** argv)
 
     getRos2Params(node);
     mainConfig = fillMainConfig(main_config_path);
+    centerlinePublisher->setParameters(mainConfig.centerline_lookahead_distance, mainConfig.centerline_max_front_points);
+
     initPerceptionSensors();
     initSensors();
     initLidar();
