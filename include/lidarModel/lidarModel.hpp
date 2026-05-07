@@ -30,6 +30,7 @@ private:
     double lidar_x;
     double lidar_y;
     double lidar_z;
+    double angular_uncertainty;
 public:
     lidarModel(/* args */);
 
