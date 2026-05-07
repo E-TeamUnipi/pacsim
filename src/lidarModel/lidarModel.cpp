@@ -144,9 +144,9 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
             if (r <= 0 || r > max_radius) continue;
 
             pcl::PointXYZRGB point;
-            point.x = r * cos(angle);
-            point.y = r * sin(angle);
-            point.z = -this->lidar_z; // Ground level
+            point.x = r * cos(angle) - this->lidar_x;
+            point.y = r * sin(angle) - this->lidar_y;
+            point.z = -this->lidar_z; 
             point.r = 128;
             point.g = 128;
             point.b = 128;
@@ -223,7 +223,7 @@ std::tuple<double, double, double> lidarModel::samplePointOnCone(double pos_x, d
     double sample_x = pos_x + radius_at_z * cos(sample_phi);
     double sample_y = pos_y + radius_at_z * sin(sample_phi);
 
-    return std::make_tuple(sample_x, sample_y, sample_z - this->lidar_z); // Restituisci la z relativa al LiDAR
+    return std::make_tuple(sample_x - this->lidar_x, sample_y - this->lidar_y, sample_z - this->lidar_z); // Position relative to LiDAR
 }
 
 
@@ -262,6 +262,8 @@ void lidarModel::readConfig(ConfigElement& config)
     config.getElement<uint16_t>(&this->num_channel, "num_channel");
     config.getElement<double>(&this->min_angle_horizontal, "min_angle_horizontal");
     config.getElement<double>(&this->max_angle_horizontal, "max_angle_horizontal");
+    config.getElement<double>(&this->lidar_x, "lidar_x");
+    config.getElement<double>(&this->lidar_y, "lidar_y");
     config.getElement<double>(&this->lidar_z, "lidar_z");
     try {
         config.getElement<double>(&this->angular_uncertainty, "angular_uncertainty");

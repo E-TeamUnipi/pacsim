@@ -27,6 +27,8 @@ private:
     uint16_t num_channel;
     double min_angle_horizontal;
     double max_angle_horizontal;
+    double lidar_x;
+    double lidar_y;
     double lidar_z;
     double angular_uncertainty;
 public:
@@ -53,6 +55,12 @@ public:
     void printConePositions(LandmarkList landmarks, std::shared_ptr<Logger> logger);
 
     uint32_t getTotalRay() { return total_ray; }
+
+    double getLidarX() const { return lidar_x; }
+
+    double getLidarY() const { return lidar_y; }
+
+    double getLidarZ() const { return lidar_z; }
 
     int countChannelsFast(double D);
 };

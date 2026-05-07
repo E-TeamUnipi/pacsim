@@ -41,6 +41,8 @@ struct Track
     bool lanesFirstWithLastConnected = true;
     std::vector<Landmark> left_lane;
     std::vector<Landmark> right_lane;
+    std::vector<Landmark> centerline_raw;
+    std::vector<Landmark> centerline_smoothed;
     std::vector<Landmark> unknown;
     std::vector<std::pair<Landmark, Landmark>> time_keeping_gates;
     Eigen::Vector3d gnssOrigin;
@@ -192,6 +194,8 @@ struct MainConfig
     std::string cog_frame_id_pipeline;
     bool broadcast_sensors_tf2;
     bool pre_transform_track;
+    double centerline_lookahead_distance = 20.0;
+    int centerline_max_front_points = 300;
 };
 
 Discipline stringToDiscipline(const std::string& disciplineStr);

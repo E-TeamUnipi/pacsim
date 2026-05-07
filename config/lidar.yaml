@@ -4,5 +4,7 @@ lidar:
   num_channel: 28
   min_angle_horizontal: -1.0472
   max_angle_horizontal: 1.0472
-  lidar_z: 0.5
   angular_uncertainty: 0.005
+  lidar_x: 0.5
+  lidar_y: 0.0
+  lidar_z: 0.5
