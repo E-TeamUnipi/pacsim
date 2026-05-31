@@ -21,16 +21,6 @@
 
 class lidarModel
 {
-private:
-    uint32_t total_ray;
-    uint16_t points_per_arch;
-    uint16_t num_channel;
-    double min_angle_horizontal;
-    double max_angle_horizontal;
-    double lidar_x;
-    double lidar_y;
-    double lidar_z;
-    double angular_uncertainty;
 public:
     lidarModel(/* args */);
 
@@ -42,9 +32,11 @@ public:
 
     pcl::PointCloud<pcl::PointXYZRGB> generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger);
 
-    void fillOcclusionsArray(double* array, LandmarkList landmarks);
+    bool generateSegment(LandmarkList landmarks, pcl::PointCloud<pcl::PointXYZRGB>& out_cloud, std::shared_ptr<Logger> logger);
 
-    void generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud);
+    void fillOcclusionsArray(double* array, LandmarkList landmarks, int start_idx, int end_idx);
+
+    void generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud, int start_idx, int end_idx);
 
     double getConeFlattedSurface();
 
@@ -62,7 +54,30 @@ public:
 
     double getLidarZ() const { return lidar_z; }
 
+    double getRate() const { return rate; }
+
     int countChannelsFast(double D);
+
+    uint16_t getNumSegments() const { return num_segments; }
+
+private:
+    bool isConeInSegment(const Landmark& lm, double phi_start, double phi_end);
+    void applyNoise(pcl::PointCloud<pcl::PointXYZRGB>& cloud);
+
+    uint32_t total_ray;
+    uint16_t points_per_arch;
+    uint16_t num_channel;
+    uint16_t num_segments;
+    uint16_t current_segment;
+    double min_angle_horizontal;
+    double max_angle_horizontal;
+    double lidar_x;
+    double lidar_y;
+    double lidar_z;
+    double angular_uncertainty;
+    double rate;
+
+    pcl::PointCloud<pcl::PointXYZRGB> accumulated_cloud;
 };
 
 

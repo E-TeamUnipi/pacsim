@@ -124,6 +124,7 @@ std::shared_ptr<WheelsSensor> torquesSensor;
 std::shared_ptr<ScalarValueSensor> currentSensorTS;
 std::shared_ptr<ScalarValueSensor> voltageSensorTS;
 std::shared_ptr<lidarModel> lidarSensor;
+std::shared_ptr<PerceptionSensor> lidarPerceptionSensor;
 std::shared_ptr<CenterlinePublisher> centerlinePublisher;
 
 std::shared_ptr<Logger> logger;
@@ -189,6 +190,8 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
     std::mutex mtxClockTrigger;
     std::unique_lock<std::mutex> lockClockTrigger(mtxClockTrigger);
 
+    double lastLidarSegmentTime = 0.0;
+
     while (rclcpp::ok() && !(finish))
     {
         rosgraph_msgs::msg::Clock clockMsg;
@@ -203,6 +206,24 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
         centerlinePublisher->publishFront(simTime, t, rEulerAngles);
 
         finish = cl->performAllChecks(lms, simTime, t, rEulerAngles);
+
+        const double lidarSegmentRate = lidarSensor->getRate() * lidarSensor->getNumSegments();
+
+        if (lidarPerceptionSensor && simTime >= (lastLidarSegmentTime + 1.0 / lidarSegmentRate))
+        {
+            lastLidarSegmentTime += 1.0 / lidarSegmentRate;
+
+            LandmarkList sensorLmsSegment = lidarPerceptionSensor->process(trackAsLMList, t, rEulerAngles, simTime);
+            pcl::PointCloud<pcl::PointXYZRGB> cloud;
+            if (lidarSensor->generateSegment(sensorLmsSegment, cloud, logger))
+            {
+                sensor_msgs::msg::PointCloud2 cloudMsg;
+                pcl::toROSMsg(cloud, cloudMsg);
+                cloudMsg.header.frame_id = "lidar";
+                cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(sensorLmsSegment.timestamp * 1e9));
+                lidarPub->publish(cloudMsg);
+            }
+        }
         // geometry_msgs::msg::TransformStamped static_transform = createStaticTransform("map", "center", simTime);
         geometry_msgs::msg::TransformStamped transformStamped
             = createRosTransformMsg(t, rEulerAngles, trackFrame, "car", simTime);
@@ -340,16 +361,6 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                 trackPub->publish(createRosTrackMessage(lms, "map", simTime));
                 pacsim::msg::PerceptionDetections lmsMsg
                     = LandmarkListToRosMessage(sensorLms, sensorLms.frame_id, sensorLms.timestamp);
-
-                if (perceptionSensor->getName() == "livox_front")
-                {
-                    sensor_msgs::msg::PointCloud2 cloudMsg;
-                    pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), cloudMsg );
-                    cloudMsg.header.frame_id = "lidar";
-                    cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(sensorLms.timestamp * 1e9));
-                    lidarPub->publish(cloudMsg);
-
-                }
 
                 perceptionSensorPublisherMap[perceptionSensor]->publish(lmsMsg);
             }
@@ -701,6 +712,11 @@ int main(int argc, char** argv)
         perceptionSensorMarkersWrappersMap[i] = detectionsMarkersWrapper;
         perceptionSensorVizPublisherMap[i] = pubViz;
         pubViz->publish(detectionsMarkersWrapper->deleteAllMsg(i->getFrameId()));
+
+        if (i->getName() == "livox_front")
+        {
+            lidarPerceptionSensor = i;
+        }
     }
     for (auto& i : imus)
     {

@@ -3,6 +3,8 @@
 
 lidarModel::lidarModel(/* args */)
 {
+    this->current_segment = 0;
+    this->num_segments = 1; // default to 1 segment (no distortion)
 }
 
 lidarModel::~lidarModel()
@@ -17,24 +19,50 @@ void lidarModel::test(std::shared_ptr<Logger> logger)
 
 pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger)
 {
-    pcl::PointCloud<pcl::PointXYZRGB> cloud;
-    std::vector<double> floorOcclusionsDistance(this->points_per_arch);
-    fillOcclusionsArray(floorOcclusionsDistance.data(), landmarks);
-    generateFloorPoints(floorOcclusionsDistance.data(), cloud);
+    // Backward compatibility: generate full cloud in one go
+    pcl::PointCloud<pcl::PointXYZRGB> out_cloud;
+    this->current_segment = 0;
+    uint16_t original_segments = this->num_segments;
+    this->num_segments = 1;
+    generateSegment(landmarks, out_cloud, logger);
+    this->num_segments = original_segments;
+    return out_cloud;
+}
 
-    // printConePositions(landmarks, logger);
+bool lidarModel::generateSegment(LandmarkList landmarks, pcl::PointCloud<pcl::PointXYZRGB>& out_cloud, std::shared_ptr<Logger> logger)
+{
+    if (this->current_segment == 0) {
+        this->accumulated_cloud.clear();
+    }
+
+    int idx_per_segment = this->points_per_arch / this->num_segments;
+    int start_idx = this->current_segment * idx_per_segment;
+    int end_idx = (this->current_segment == this->num_segments - 1) ? (this->points_per_arch - 1) : (start_idx + idx_per_segment - 1);
+
+    double phi_start = this->min_angle_horizontal + (this->max_angle_horizontal - this->min_angle_horizontal) * start_idx / (this->points_per_arch - 1);
+    double phi_end = this->min_angle_horizontal + (this->max_angle_horizontal - this->min_angle_horizontal) * (end_idx + 1) / (this->points_per_arch - 1);
+
+    std::vector<double> floorOcclusionsDistance(this->points_per_arch);
+    fillOcclusionsArray(floorOcclusionsDistance.data(), landmarks, start_idx, end_idx);
+    generateFloorPoints(floorOcclusionsDistance.data(), this->accumulated_cloud, start_idx, end_idx);
 
     for (const auto& lm : landmarks.list) {
         if (lm.type != LandmarkType::BLUE && lm.type != LandmarkType::YELLOW && lm.type != LandmarkType::ORANGE) {
             continue; // skip non-cone landmarks
         }
+
+        if (!isConeInSegment(lm, phi_start, phi_end)) {
+            continue;
+        }
+
         uint8_t r, g, b;
-        if (lm.type == LandmarkType::YELLOW)
-            r = 165, g = 173, b = 3;
-        else if (lm.type == LandmarkType::ORANGE)
-            r = 255, g = 165, b = 0;
-        else if (lm.type == LandmarkType::BLUE)
-            r = 0, g = 0, b = 255;
+        // Temporary: Color by segment for visualization
+        static const std::vector<std::tuple<uint8_t, uint8_t, uint8_t>> segment_colors = {
+            {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 0, 255}, {0, 255, 255},
+            {255, 165, 0}, {128, 0, 128}, {0, 128, 128}, {128, 128, 0}
+        };
+        auto [sr, sg, sb] = segment_colors[this->current_segment % segment_colors.size()];
+        r = sr; g = sg; b = sb;
 
         double c_x = lm.position.x();
         double c_y = lm.position.y();
@@ -44,19 +72,50 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
         uint32_t samples = sampleOnCone(surface, distance);
         for (uint32_t i = 0; i < samples; ++i){
             auto [x,y,z] = samplePointOnCone(c_x, c_y, c_z, distance);
-            pcl::PointXYZRGB point;
-            point.x = x;
-            point.y = y;
-            point.z = z;
-            point.r = r;
-            point.g = g;
-            point.b = b;
-            cloud.push_back(point);
+
+            // Point-wise filtering
+            double phi_point = std::atan2(y + this->lidar_y, x + this->lidar_x); // back to sensor frame for filtering
+            if (phi_point >= phi_start && phi_point < phi_end) {
+                pcl::PointXYZRGB point;
+                point.x = x;
+                point.y = y;
+                point.z = z;
+                point.r = r;
+                point.g = g;
+                point.b = b;
+                this->accumulated_cloud.push_back(point);
+            }
         }
     }
 
-    static std::default_random_engine generator(std::random_device{}());
+    this->current_segment++;
 
+    if (this->current_segment >= this->num_segments) {
+        this->current_segment = 0;
+        applyNoise(this->accumulated_cloud);
+
+        this->accumulated_cloud.width = this->accumulated_cloud.points.size();
+        this->accumulated_cloud.height = 1;
+        this->accumulated_cloud.is_dense = false;
+        out_cloud = this->accumulated_cloud;
+        return true;
+    }
+
+    return false;
+}
+
+bool lidarModel::isConeInSegment(const Landmark& lm, double phi_start, double phi_end)
+{
+    double dist_to_center = std::sqrt(lm.position.x()*lm.position.x() + lm.position.y()*lm.position.y());
+    double theta_center = std::atan2(lm.position.y(), lm.position.x());
+    double alpha_width = std::asin(RADIUS / dist_to_center);
+
+    return std::max(theta_center - alpha_width, phi_start) <= std::min(theta_center + alpha_width, phi_end);
+}
+
+void lidarModel::applyNoise(pcl::PointCloud<pcl::PointXYZRGB>& cloud)
+{
+    static std::default_random_engine generator(std::random_device{}());
     for (auto& point : cloud.points) {
         double D = std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
         if (D > 0) {
@@ -67,25 +126,13 @@ pcl::PointCloud<pcl::PointXYZRGB> lidarModel::generatePointCloud(LandmarkList la
             point.z += dist(generator);
         }
     }
-
-    cloud.width = cloud.points.size();
-    cloud.height = 1;
-    cloud.is_dense = false;
-
-
-    // static int cloud_idx = 0;
-    // std::ostringstream oss;
-    // oss << "clouds/cloud_test_" << std::setw(3) << std::setfill('0') << cloud_idx++ << ".pcd";
-    // std::string filename = oss.str();
-    // pcl::io::savePCDFileASCII(filename, cloud);
-    return cloud;
-
 }
 
-void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
+
+void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks, int start_idx, int end_idx)
 {
-    // Inizializza tutte le distanze a un valore molto grande (nessuna ostruzione)
-    for (int i = 0; i < this->points_per_arch; ++i)
+    // Inizializza solo la porzione del segmento
+    for (int i = start_idx; i <= end_idx; ++i)
     {
         occlusions[i] = std::numeric_limits<double>::max();
     }
@@ -107,18 +154,18 @@ void lidarModel::fillOcclusionsArray(double* occlusions, LandmarkList landmarks)
         double alpha = std::asin(RADIUS / distance);
 
         // Calcola direttamente gli indici degli angoli coperti dal cono senza iterare su tutti
-        int start_idx = std::max(0, static_cast<int>(std::ceil((theta - alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
-        int end_idx = std::min(static_cast<int>(this->points_per_arch - 1), static_cast<int>(std::floor((theta + alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
-        for (int i = start_idx; i <= end_idx; ++i) {
+        int lm_start_idx = std::max(start_idx, static_cast<int>(std::ceil((theta - alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
+        int lm_end_idx = std::min(end_idx, static_cast<int>(std::floor((theta + alpha - this->min_angle_horizontal) / (this->max_angle_horizontal - this->min_angle_horizontal) * (this->points_per_arch - 1))));
+        for (int i = lm_start_idx; i <= lm_end_idx; ++i) {
             if (distance < occlusions[i])
                 occlusions[i] = distance - RADIUS;
         }
     }
 }
 
-void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud)
+void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::PointXYZRGB>& cloud, int start_idx, int end_idx)
 {
-    for (int i = 0; i < this->points_per_arch; ++i)
+    for (int i = start_idx; i <= end_idx; ++i)
     {
         double angle = this->min_angle_horizontal + (this->max_angle_horizontal - this->min_angle_horizontal) * i / (this->points_per_arch - 1);
 
@@ -147,9 +194,15 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
             point.x = r * cos(angle) - this->lidar_x;
             point.y = r * sin(angle) - this->lidar_y;
             point.z = -this->lidar_z; 
-            point.r = 128;
-            point.g = 128;
-            point.b = 128;
+            
+            // Temporary: Color by segment
+            static const std::vector<std::tuple<uint8_t, uint8_t, uint8_t>> segment_colors = {
+                {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 0, 255}, {0, 255, 255},
+                {255, 165, 0}, {128, 0, 128}, {0, 128, 128}, {128, 128, 0}
+            };
+            auto [sr, sg, sb] = segment_colors[this->current_segment % segment_colors.size()];
+            point.r = sr; point.g = sg; point.b = sb;
+            
             cloud.push_back(point);
         }
     }
@@ -269,5 +322,17 @@ void lidarModel::readConfig(ConfigElement& config)
         config.getElement<double>(&this->angular_uncertainty, "angular_uncertainty");
     } catch (const std::exception& e) {
         this->angular_uncertainty = 0.005; // default fallback
+    }
+    try {
+        uint32_t segments;
+        config.getElement<uint32_t>(&segments, "num_segments");
+        this->num_segments = static_cast<uint16_t>(segments);
+    } catch (const std::exception& e) {
+        this->num_segments = 1; // default fallback
+    }
+    try {
+        config.getElement<double>(&this->rate, "rate");
+    } catch (const std::exception& e) {
+        this->rate = 10.0; // default fallback
     }
 }
