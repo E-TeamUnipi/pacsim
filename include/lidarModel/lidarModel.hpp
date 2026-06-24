@@ -60,11 +60,7 @@ public:
 
     double getLidarZ() const { return lidar_z; }
 
-    double getRate() const { return rate; }
-
     int countChannelsFast(double D);
-
-    uint16_t getNumSegments() const { return num_segments; }
 
     std::string getPerceptionSensorName() const { return perception_sensor_name; }
 
