@@ -10,6 +10,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <random>
 #include <memory>
+#include "sensorModels/perceptionSensor.hpp"
 
 
 // #define TOTAL_RAY 72000
@@ -33,6 +34,11 @@ public:
     pcl::PointCloud<pcl::PointXYZRGB> generatePointCloud(LandmarkList landmarks, std::shared_ptr<Logger> logger);
 
     bool generateSegment(LandmarkList landmarks, pcl::PointCloud<pcl::PointXYZRGB>& out_cloud, std::shared_ptr<Logger> logger);
+
+    void setPerceptionSensor(std::shared_ptr<PerceptionSensor> ps) { perceptionSensor = ps; }
+
+    bool RunTick(double simTime, LandmarkList& trackAsLMList, Eigen::Vector3d t, Eigen::Vector3d rEulerAngles, pcl::PointCloud<pcl::PointXYZRGB>& out_cloud, std::shared_ptr<Logger> logger);
+
 
     void fillOcclusionsArray(double* array, LandmarkList landmarks, int start_idx, int end_idx);
 
@@ -60,6 +66,8 @@ public:
 
     uint16_t getNumSegments() const { return num_segments; }
 
+    std::string getPerceptionSensorName() const { return perception_sensor_name; }
+
 private:
     bool isConeInSegment(const Landmark& lm, double phi_start, double phi_end);
     void applyNoise(pcl::PointCloud<pcl::PointXYZRGB>& cloud);
@@ -76,8 +84,11 @@ private:
     double lidar_z;
     double angular_uncertainty;
     double rate;
+    std::string perception_sensor_name;
+    std::shared_ptr<PerceptionSensor> perceptionSensor;
 
     pcl::PointCloud<pcl::PointXYZRGB> accumulated_cloud;
+    double lastLidarSegmentTime = 0.0;
 };
 
 

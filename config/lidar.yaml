@@ -10,3 +10,4 @@ lidar:
   lidar_x: 0.5
   lidar_y: 0.0
   lidar_z: 0.5
+  perception_sensor_name: "livox_front"

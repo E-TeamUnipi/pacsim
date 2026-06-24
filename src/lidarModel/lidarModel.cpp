@@ -335,4 +335,27 @@ void lidarModel::readConfig(ConfigElement& config)
     } catch (const std::exception& e) {
         this->rate = 10.0; // default fallback
     }
+    try {
+        config.getElement<std::string>(&this->perception_sensor_name, "perception_sensor_name");
+    } catch (const std::exception& e) {
+        this->perception_sensor_name = "livox_front"; // default fallback
+    }
 }
+
+bool lidarModel::RunTick(double simTime, LandmarkList& trackAsLMList, Eigen::Vector3d t, Eigen::Vector3d rEulerAngles, pcl::PointCloud<pcl::PointXYZRGB>& out_cloud, std::shared_ptr<Logger> logger)
+{
+    if (!perceptionSensor) return false;
+
+    const double lidarSegmentRate = this->rate * this->num_segments;
+    
+    if (simTime >= (this->lastLidarSegmentTime + 1.0 / lidarSegmentRate)) 
+    {
+        this->lastLidarSegmentTime += 1.0 / lidarSegmentRate;
+        
+        LandmarkList sensorLmsSegment = perceptionSensor->process(trackAsLMList, t, rEulerAngles, simTime);
+        
+        return this->generateSegment(sensorLmsSegment, out_cloud, logger);
+    }
+    return false;
+}
+
