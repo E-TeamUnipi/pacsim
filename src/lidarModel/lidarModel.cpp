@@ -5,6 +5,7 @@ lidarModel::lidarModel(/* args */)
 {
     this->current_segment = 0;
     this->num_segments = 1; // default to 1 segment (no distortion)
+    this->is_in_dead_time = false;
 }
 
 lidarModel::~lidarModel()
@@ -346,16 +347,47 @@ bool lidarModel::RunTick(double simTime, LandmarkList& trackAsLMList, Eigen::Vec
 {
     if (!perceptionSensor) return false;
 
-    const double lidarSegmentRate = this->rate * this->num_segments;
-    
-    if (simTime >= (this->lastLidarSegmentTime + 1.0 / lidarSegmentRate)) 
-    {
-        this->lastLidarSegmentTime += 1.0 / lidarSegmentRate;
+    double fov = std::abs(this->max_angle_horizontal - this->min_angle_horizontal);
+    double t_total = 1.0 / this->rate;
+    double t_active = t_total * (fov / (2.0 * M_PI));
+    double dt_segment = t_active / this->num_segments;
+    double t_dead = t_total - t_active;
+
+    // Gestione dell'eventuale tempo morto a fine giro
+    if (this->is_in_dead_time) {
+        if (simTime < (this->lastLidarSegmentTime + t_dead)) {
+            return false; // Il lidar sta girando a vuoto, aspettiamo
+        }
         
-        LandmarkList sensorLmsSegment = perceptionSensor->process(trackAsLMList, t, rEulerAngles, simTime);
-        
-        return this->generateSegment(sensorLmsSegment, out_cloud, logger);
+        // Fine della zona morta: aggiorniamo il tempo e pubblichiamo la cloud
+        this->lastLidarSegmentTime += t_dead;
+        this->is_in_dead_time = false;
+        out_cloud = this->accumulated_cloud;
+        return true;
     }
-    return false;
+
+    // Acquisizione dei segmenti attivi
+    if (simTime < (this->lastLidarSegmentTime + dt_segment)) {
+        return false; // Non è ancora il momento di acquisire il prossimo segmento
+    }
+
+    // Eseguiamo l'acquisizione del segmento
+    this->lastLidarSegmentTime += dt_segment;
+    LandmarkList sensorLmsSegment = perceptionSensor->process(trackAsLMList, t, rEulerAngles, simTime);
+    bool finished_active = this->generateSegment(sensorLmsSegment, out_cloud, logger);
+
+    // Se non abbiamo finito tutti i segmenti del FOV, aspettiamo i prossimi
+    if (!finished_active) {
+        return false;
+    }
+
+    // Abbiamo completato il FOV. Dobbiamo simulare latenza?
+    if (t_dead > 1e-6) {
+        this->is_in_dead_time = true;
+        return false; // Non pubblichiamo ancora, entriamo nello stato di latenza
+    }
+    
+    // Niente latenza (es. lidar a 360°), pubblichiamo subito
+    return true;
 }
 

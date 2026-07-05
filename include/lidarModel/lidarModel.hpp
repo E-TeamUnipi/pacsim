@@ -85,6 +85,7 @@ private:
 
     pcl::PointCloud<pcl::PointXYZRGB> accumulated_cloud;
     double lastLidarSegmentTime = 0.0;
+    bool is_in_dead_time = false;
 };
 
 
