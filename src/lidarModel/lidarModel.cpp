@@ -57,13 +57,15 @@ bool lidarModel::generateSegment(LandmarkList landmarks, pcl::PointCloud<pcl::Po
         }
 
         uint8_t r, g, b;
-        // Temporary: Color by segment for visualization
-        static const std::vector<std::tuple<uint8_t, uint8_t, uint8_t>> segment_colors = {
-            {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 0, 255}, {0, 255, 255},
-            {255, 165, 0}, {128, 0, 128}, {0, 128, 128}, {128, 128, 0}
-        };
-        auto [sr, sg, sb] = segment_colors[this->current_segment % segment_colors.size()];
-        r = sr; g = sg; b = sb;
+        if (lm.type == LandmarkType::BLUE) {
+            r = 50; g = 150; b = 255; // Light/Bright Blue, visible on dark background
+        } else if (lm.type == LandmarkType::YELLOW) {
+            r = 255; g = 255; b = 0; // Yellow
+        } else if (lm.type == LandmarkType::ORANGE) {
+            r = 255; g = 150; b = 0; // Bright Orange
+        } else {
+            r = 255; g = 255; b = 255;
+        }
 
         double c_x = lm.position.x();
         double c_y = lm.position.y();
@@ -196,13 +198,10 @@ void lidarModel::generateFloorPoints(double* occlusions, pcl::PointCloud<pcl::Po
             point.y = r * sin(angle) - this->lidar_y;
             point.z = -this->lidar_z; 
             
-            // Temporary: Color by segment
-            static const std::vector<std::tuple<uint8_t, uint8_t, uint8_t>> segment_colors = {
-                {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 0, 255}, {0, 255, 255},
-                {255, 165, 0}, {128, 0, 128}, {0, 128, 128}, {128, 128, 0}
-            };
-            auto [sr, sg, sb] = segment_colors[this->current_segment % segment_colors.size()];
-            point.r = sr; point.g = sg; point.b = sb;
+            // Floor point color
+            point.r = 100;
+            point.g = 100;
+            point.b = 100;
             
             cloud.push_back(point);
         }
