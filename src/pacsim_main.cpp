@@ -189,6 +189,7 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
     std::mutex mtxClockTrigger;
     std::unique_lock<std::mutex> lockClockTrigger(mtxClockTrigger);
 
+
     while (rclcpp::ok() && !(finish))
     {
         rosgraph_msgs::msg::Clock clockMsg;
@@ -203,6 +204,16 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
         centerlinePublisher->publishFront(simTime, t, rEulerAngles);
 
         finish = cl->performAllChecks(lms, simTime, t, rEulerAngles);
+
+        pcl::PointCloud<pcl::PointXYZRGB> cloud;
+        if (lidarSensor->RunTick(simTime, trackAsLMList, t, rEulerAngles, cloud, logger))
+        {
+            sensor_msgs::msg::PointCloud2 cloudMsg;
+            pcl::toROSMsg(cloud, cloudMsg);
+            cloudMsg.header.frame_id = "lidar";
+            cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(simTime * 1e9));
+            lidarPub->publish(cloudMsg);
+        }
         // geometry_msgs::msg::TransformStamped static_transform = createStaticTransform("map", "center", simTime);
         geometry_msgs::msg::TransformStamped transformStamped
             = createRosTransformMsg(t, rEulerAngles, trackFrame, "car", simTime);
@@ -340,16 +351,6 @@ int threadMainLoopFunc(std::shared_ptr<rclcpp::Node> node)
                 trackPub->publish(createRosTrackMessage(lms, "map", simTime));
                 pacsim::msg::PerceptionDetections lmsMsg
                     = LandmarkListToRosMessage(sensorLms, sensorLms.frame_id, sensorLms.timestamp);
-
-                if (perceptionSensor->getName() == "livox_front")
-                {
-                    sensor_msgs::msg::PointCloud2 cloudMsg;
-                    pcl::toROSMsg( lidarSensor->generatePointCloud(sensorLms, logger), cloudMsg );
-                    cloudMsg.header.frame_id = "lidar";
-                    cloudMsg.header.stamp = rclcpp::Time(static_cast<uint64_t>(sensorLms.timestamp * 1e9));
-                    lidarPub->publish(cloudMsg);
-
-                }
 
                 perceptionSensorPublisherMap[perceptionSensor]->publish(lmsMsg);
             }
@@ -519,6 +520,13 @@ void initLidar(){
     lidarSensor->readConfig(lidarConfig);
     // log total ray
     logger->logInfo("Lidar total rays: " + std::to_string(lidarSensor->getTotalRay()));
+
+    for (auto& ps : perceptionSensors) {
+        if (ps->getName() == lidarSensor->getPerceptionSensorName()) {
+            lidarSensor->setPerceptionSensor(ps);
+            break;
+        }
+    }
 }
 
 void initSensors()

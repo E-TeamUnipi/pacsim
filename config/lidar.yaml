@@ -2,9 +2,12 @@ lidar:
   total_ray: 72000
   points_per_arch: 450
   num_channel: 28
+  num_segments: 30
+  rate: 20
   min_angle_horizontal: -1.0472
   max_angle_horizontal: 1.0472
-  angular_uncertainty: 0.005
+  angular_uncertainty: 0.001
   lidar_x: 0.5
   lidar_y: 0.0
   lidar_z: 0.5
+  perception_sensor_name: "livox_front"
