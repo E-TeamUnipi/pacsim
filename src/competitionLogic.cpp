@@ -542,7 +542,7 @@ bool CompetitionLogic::checkFinishConditionsMet(double time)
     }
     if (discipline == Discipline::AUTOCROSS)
     {
-        ret = lapTimes.size() >= 1;
+        ret = lapTimes.size() >= 3;
     }
     if (discipline == Discipline::TRACKDRIVE)
     {
