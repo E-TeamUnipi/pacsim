@@ -32,6 +32,7 @@ bool ImuSensor::RunTick(ImuData& in, Eigen::Vector3d& alpha, double time)
     if (this->sampleReady(time))
     {
         ImuData value = this->applyError(in);
+        value.acc(2)+=9.81;
         value.frame = "cog_static";
         this->deadTimeQueue.push(value);
         this->registerSampling();
